@@ -35,9 +35,11 @@ class CTFdTables:
         #  self.teams = Base.classes.teams
         self.tracking = Base.classes.tracking
         #  self.unlocks = Base.classes.unlocks
-        if CTFD_MODE == 'users':
-            self.users = Base.classes.users
-        elif CTFD_MODE == 'teams':
-            self.users = Base.classes.teams
-        else:
-            raise CTFdError()
+        # if CTFD_MODE == 'users':
+        #     self.users = Base.classes.users
+        # elif CTFD_MODE == 'teams':
+        #     self.users = Base.classes.teams
+        # else:
+        #     raise CTFdError()
+        self.users = Base.classes.users
+        self.teams = Base.classes.teams

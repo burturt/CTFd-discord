@@ -31,9 +31,8 @@ def display_scoreboard(db: Database, all_players: bool = False) -> str:
     for rank, user_data in enumerate(users_data):
         user, score = user_data['username'], user_data['score']
         if rank < len(MEDALS):
-            to_send += f'{MEDALS[rank]} {user} --> Score = {score} \n'
-        else:
-            to_send += f' • • • {user} --> Score = {score} \n'
+            to_send += f'{MEDALS[rank]} '
+        to_send += f'**#{rank+1}** {user} ({score} points)\n'
 
     return to_send
 
@@ -62,11 +61,12 @@ def display_who_solved(db: Database, challenge_selected: str) -> str:
     if not database_data.challenge_exists(db.session, db.tables, challenge_selected):
         return f'Challenge {challenge_selected} does not exists.'
     to_send = ''
-    users = database_data.get_users_solved_challenge(db.session, db.tables, challenge_selected, user_type=CATCH_MODE)
-    for user in users:
-        to_send += f' • {user}\n'
+    solves = database_data.get_users_solved_challenge(db.session, db.tables, challenge_selected, user_type=CATCH_MODE)
+    for rank,solve in enumerate(solves):
+        name, date = solve['name'], solve['date']
+        to_send += f'{rank+1}. **{name}** - {date}\n'
     if not to_send:
-        to_send = f'Nobody solves {challenge_selected}.'
+        to_send = f'No one has solved {challenge_selected} yet!'
     return to_send
 
 
@@ -92,7 +92,7 @@ def display_problem(db: Database, context: commands.context.Context, challenge_s
     return to_send
 
 
-def display_last_days(db: Database, days_num: int, username: Optional[str]) -> List[Dict[str, str]]:
+def display_recent(db: Database, days_num: int, username: Optional[str]) -> List[Dict[str, str]]:
     if username is not None and not database_data.user_exists(db.session, db.tables, username, user_type=CATCH_MODE):
         to_send = f'User {username} does not exists.'
         to_send_list = [{'user': username, 'msg': to_send}]
@@ -100,26 +100,19 @@ def display_last_days(db: Database, days_num: int, username: Optional[str]) -> L
 
     challenges_data = database_data.get_challenges_solved_during(db.session, db.tables, days_num, user_type=CATCH_MODE)
 
-    to_send_list = []
-    for challenge_data in challenges_data:
-        username_challenge = challenge_data['username']
-        if username is not None and username_challenge != username:
+    to_send = ''
+    for challenge in challenges_data:
+        user = challenge['user']
+        if username is not None and user != username:
             continue
-        challenges = challenge_data['challenges']
-        to_send = ''
-        for challenge in challenges:
-            to_send += f' • {challenge["name"]} ({challenge["value"]} points) - {challenge["date"]}\n'
-        to_send_list.append({'user': username_challenge, 'msg': to_send})
+        to_send += f'**{user}:** {challenge["chall"]} ({challenge["points"]} points) - {challenge["date"]}\n'
 
-    test = [item['msg'] == '' for item in to_send_list]
-    if username is not None and False not in test:
-        to_send = f'No challenges solved by {username} :frowning:'
-        to_send_list = [{'user': None, 'msg': to_send}]
-    elif False not in test:
-        to_send = 'No challenges solved by anyone :frowning:'
-        to_send_list = [{'user': None, 'msg': to_send}]
+    if username is not None and to_send == '':
+        to_send = f'No challenges solved by {username} recently :frowning:'
+    elif to_send == '':
+        to_send = 'No challenges solved by anyone recently :frowning:'
 
-    return to_send_list
+    return to_send
 
 
 def display_diff(db: Database, user1: str, user2: str) -> List[Dict[str, str]]:
@@ -154,10 +147,13 @@ async def display_cron(db: Database) -> Tuple[Optional[str], Optional[str], Opti
     tag, challenge = database_data.get_new_challenges(db.session, db.tables, db.tag, user_type=CATCH_MODE)
     db.tag = tag
     if challenge:
-        name = f'New challenge solved by {challenge["username"]}'
-        to_send = f' • {challenge["challenge"]} ({challenge["value"]} points)'
-        to_send += f'\n • Date: {challenge["date"]}'
-        return name, to_send, 0xFFCC00
+        if challenge['first_blood']:
+            name = f'💉 First blood by **{challenge["username"]}**! 💉'
+        else:
+            name = f'🎉 New solve by **{challenge["username"]}**! 🎉'
+        to_send = f'• **{challenge["challenge"]}** ({challenge["value"]} points)'
+        to_send += f'\n• Date: {challenge["date"]}'
+        return name, to_send, 0xa11d2e
     challenges_id = db.challenges
     test_challenges_id = database_data.get_visible_challenges(db.session, db.tables)
     if (test_challenges_id == challenges_id) or (len(test_challenges_id) < len(challenges_id)):

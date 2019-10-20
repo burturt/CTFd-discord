@@ -2,18 +2,21 @@ import asyncio
 import sys
 
 from discord.ext import commands
+import discord
 
 import bot.display.embed as display
 from bot import log
 from bot.constants import TOKEN, DB_URI
 from db import Database
 
+cmd_prefix = '>>'
 
 class CTFdBot:
 
     def __init__(self) -> None:
         """ Discord Bot to catch CTFd events made by zTeeed """
-        self.bot = commands.Bot(command_prefix='>>')
+        self.bot = commands.Bot(command_prefix=cmd_prefix)
+        self.bot.remove_command('help')
         self.bot.db = Database(DB_URI)
         self.bot.channel = None
 
@@ -27,6 +30,7 @@ class CTFdBot:
     def catch(self):
         @self.bot.event
         async def on_ready():
+            await self.bot.change_presence(status=discord.Status.online, activity=discord.Game('type ' + cmd_prefix + 'help for help!'))
             await display.ready(self.bot)
 
         @self.bot.command(description='Show ranking of CTFd (20 first players)')
@@ -53,11 +57,11 @@ class CTFdBot:
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
             await display.category(context)
 
-        @self.bot.command(description='Mention discord users if their discord id is in challenge description.')
-        async def problem(context: commands.context.Context):
-            """ <challenge> """
-            log.info("Command executed", name=str(context.command), author=str(context.message.author))
-            await display.problem(context)
+        # @self.bot.command(description='Mention discord users if their discord id is in challenge description.')
+        # async def problem(context: commands.context.Context):
+        #     """ <challenge> """
+        #     log.info("Command executed", name=str(context.command), author=str(context.message.author))
+        #     await display.problem(context)
 
         @self.bot.command(description='Return who solved a specific challenge.')
         async def who_solved(context: commands.context.Context):
@@ -65,11 +69,11 @@ class CTFdBot:
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
             await display.who_solved(context)
 
-        @self.bot.command(description='Return challenges solved grouped by users for last day.')
-        async def solved_last_days(context: commands.context.Context):
-            """ <number_of_days> (<username>) """
+        @self.bot.command(description='Return recent solves.')
+        async def recent(context: commands.context.Context):
+            """ (<number_of_days>) (<username>) """
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
-            await display.last_days(context)
+            await display.recent(context)
 
         @self.bot.command(description='Return difference of solved challenges between two users.')
         async def diff(context: commands.context.Context):
@@ -77,11 +81,16 @@ class CTFdBot:
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
             await display.diff(context)
 
-        @self.bot.command(description='Flush all data from bot channel excepted events')
-        async def flush(context: commands.context.Context):
-            """ """
+        # @self.bot.command(description='Flush all data from bot channel excepted events')
+        # async def flush(context: commands.context.Context):
+        #     """ """
+        #     log.info("Command executed", name=str(context.command), author=str(context.message.author))
+        #     await display.flush(context)
+
+        @self.bot.command(description='Displays available bot commands')
+        async def help(context: commands.context.Context):
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
-            await display.flush(context)
+            await display.help(self.bot)
 
     def start(self):
         if TOKEN == 'token':

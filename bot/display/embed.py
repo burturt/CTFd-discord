@@ -57,26 +57,20 @@ def check(bot: commands.bot.Bot) -> Optional[discord.channel.TextChannel]:
 async def ready(bot: commands.bot.Bot) -> None:
     channel = check(bot)
     bot.channel = channel  # necessary from cron tasks, context.channel is used in others functions
-    log.info('CTFdBot is coming !')
-
-    to_send = f'Hello, it seems that it\'s the first time you are using my services.\nYou might use ' \
-        f'`{bot.command_prefix}help` to know more about my features.'
-
-    embed_color, embed_name = 0x000000, "CTFd Bot"
-    await interrupt(channel, to_send, embed_color=embed_color, embed_name=embed_name)
+    log.info('CTFdBot is ready!')
 
 
 async def scoreboard(context: commands.context.Context, all_players=False) -> None:
     to_send = show.display_scoreboard(context.bot.db, all_players=all_players)
     if not to_send:
         to_send = 'No users have resolved at least one challenge at this time'
-    await interrupt(context.channel, to_send, embed_color=0x4200d4, embed_name='Scoreboard')
+    await interrupt(context.channel, to_send, embed_color=0xeed37b, embed_name='Scoreboard')
 
 
 async def categories(context: commands.context.Context) -> None:
     to_send = show.display_categories(context.bot.db)
     if not to_send:
-        to_send = 'There is no categories of challenges at this time'
+        to_send = 'There are no categories at this time'
     await interrupt(context.channel, to_send, embed_color=0xB315A8, embed_name='Categories')
 
 
@@ -91,7 +85,7 @@ async def category(context: commands.context.Context) -> None:
 
     to_send = show.display_category(context.bot.db, category_name)
     embed_name = f"Category {category_name}"
-    await interrupt(context.channel, to_send, embed_color=0xB315A8, embed_name=embed_name)
+    await interrupt(context.channel, to_send, embed_color=0x90e173, embed_name=embed_name)
 
 
 async def who_solved(context: commands.context.Context) -> None:
@@ -104,7 +98,7 @@ async def who_solved(context: commands.context.Context) -> None:
         return
 
     to_send = show.display_who_solved(context.bot.db, challenge_selected)
-    embed_name = f"Who solved {challenge_selected} ?"
+    embed_name = f"Solves for {challenge_selected}"
     await interrupt(context.channel, to_send, embed_color=0x29C1C5, embed_name=embed_name)
 
 
@@ -125,46 +119,26 @@ async def problem(context: commands.context.Context) -> None:
         await interrupt(context.channel, to_send, embed_color=0x29C1C5, embed_name=embed_name)
 
 
-async def display_by_blocks_duration(context: commands.context.Context, to_send_list: List[Dict[str, str]], color: int,
-                                     duration_msg: str = '') -> None:
-    for block in to_send_list:
-        print(block)
-        to_send = block['msg']
-
-        if block['user'] is None:
-            embed_name = f"Challenges solved {duration_msg}"
-            to_send = to_send_list[0]['msg']
-            await interrupt(context.channel, to_send, embed_color=color, embed_name=embed_name)
-            return
-
-        if to_send:
-            embed_name = f"Challenges solved by {block['user']} {duration_msg}"
-            await interrupt(context.channel, to_send, embed_color=color, embed_name=embed_name)
-
-
-async def last_days(context: commands.context.Context) -> None:
+async def recent(context: commands.context.Context) -> None:
     args = get_command_args(context)
 
-    if len(args) < 1 or len(args) > 2:
-        to_send = f'Use {context.bot.command_prefix}{context.command} {context.command.help.strip()}'
+    days_num = args[0] if len(args) > 0 else 1
+
+    try:
+        days_num = float(days_num)
+        if days_num < 0.1:
+            raise ValueError('days_num invalid')
+    except:
+        to_send = f'<number_of_days> is a number >= 0.1.\nUse {context.bot.command_prefix}recent {context.command.help.strip()}'
         await interrupt(context.channel, to_send, embed_color=0xD81948, embed_name="ERROR")
         return
 
-    days_num = args[0]
-    if not days_num.isdigit() or int(days_num) < 1:
-        to_send = f'<number_of_days> is an integer >= 1.\nUse {context.bot.command_prefix}solved_last_days ' \
-            f'{context.command.help.strip()}'
-        await interrupt(context.channel, to_send, embed_color=0xD81948, embed_name="ERROR")
-        return
-
-    days_num = int(days_num)
-    hours = f'{days_num * 24}h'
     username = None
     if len(args) == 2:
         username = unescape(args[1]).strip()
 
-    to_send_list = show.display_last_days(context.bot.db, days_num, username)
-    await display_by_blocks_duration(context, to_send_list, 0x00C7FF, duration_msg=f'since last {hours}')
+    to_send = show.display_recent(context.bot.db, days_num, username)
+    await interrupt(context.channel, to_send, 0x00C7FF, embed_name=f'Solves in the last {round(days_num * 24, 2)} hours')
 
 
 async def display_by_blocks_diff(context: commands.context.Context, to_send_list: List[Dict[str, str]], color: int) \
@@ -204,3 +178,25 @@ async def cron(bot: commands.bot.Bot) -> None:
     name, to_send_cron, embed_color = await show.display_cron(bot.db)
     if to_send_cron:
         await interrupt(bot.channel, to_send_cron, embed_color=embed_color, embed_name=name)
+
+async def help(bot: commands.bot.Bot) -> None:
+    if str(bot.channel) != BOT_CHANNEL:  # prevent to respond if message/command is not sent from BOT_CHANNEL
+        log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(bot.channel))
+        return
+    cp = bot.command_prefix
+    about_msg = 'This bot is a [fork](https://github.com/josephsurin/CTFd-discord) of [zteeed\'s CTFd-discord bot](https://github.com/zteeed/CTFd-discord)'
+    help_msg = f"""**Available Commands:**
+```
+{cp}categories                      - lists all challenge categories
+{cp}category <category>             - lists challenges in the specified category
+{cp}diff <user1> <user2>            - displays the difference of solved challenges between two users
+{cp}help                            - displays this message
+{cp}scoreboard                      - displays the top 20 teams
+{cp}scoreboard_complete             - displays the entire scoreboard
+{cp}recent (<num>) (<user>)         - displays recent solves (up to <num> days for a specific <user>)
+{cp}who_solved <chall_name>         - displays the solves for the specified challenge
+```
+"""
+    embed = discord.Embed(color=0x90e173)
+    embed.add_field(name='About', value=about_msg, inline=False)
+    await bot.channel.send(help_msg, embed=embed)

@@ -6,10 +6,12 @@ import struct
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import desc, func
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from bot.database.tables import CTFdTables
+
+from bot.util import format_date
 
 
 def get_ctf_name(s: Session, tables: CTFdTables) -> str:
@@ -36,21 +38,19 @@ def get_challenge_info(s: Session, tables: CTFdTables, id: int) -> Optional[Tupl
 
 
 def get_scoreboard(s: Session, tables: CTFdTables, user_type: str = 'all') -> List[Dict]:
-    scoreboard = s.query(tables.users.name, func.sum(tables.challenges.value).label('score')). \
-        join(tables.solves, tables.users.id == tables.solves.user_id). \
+    scoreboard = s.query(tables.teams.name, func.sum(tables.challenges.value).label('score')). \
+        join(tables.solves, tables.teams.id == tables.solves.user_id). \
         join(tables.challenges, tables.challenges.id == tables.solves.challenge_id)
-    if user_type != 'all':
-        scoreboard = scoreboard.filter(tables.users.type == user_type)
-    scoreboard = scoreboard.group_by(tables.users.id).all()
+
+    scoreboard = scoreboard.group_by(tables.teams.id).all()
 
     score_list = [dict(username=username, score=score_user) for (username, score_user) in scoreboard]
     return sorted(score_list, key=lambda item: item['score'], reverse=True)
 
 
 def get_users(s: Session, tables: CTFdTables, user_type: str = 'all') -> List[str]:
-    # users with a null score will not be displayed
-    scoreboard = get_scoreboard(s, tables, user_type=user_type)
-    return [item['username'] for item in scoreboard]
+    users = s.query(tables.users.name).all()
+    return [u[0] for u in users]
 
 
 def get_categories(s: Session, tables: CTFdTables) -> List[str]:
@@ -111,17 +111,18 @@ def get_users_solved_challenge(s: Session, tables: CTFdTables, challenge: str, u
     if not challenge_exists(s, tables, challenge):
         return None
     users = get_users(s, tables, user_type=user_type)
-    users_solves = s.query(tables.users.name). \
-        join(tables.solves, tables.users.id == tables.solves.user_id). \
-        join(tables.challenges, tables.challenges.id == tables.solves.challenge_id). \
-        filter(tables.challenges.name == challenge)
+    users_solves = s.query(tables.users.name, tables.submissions.date). \
+        join(tables.submissions, tables.submissions.user_id == tables.users.id). \
+        join(tables.challenges, tables.challenges.id == tables.submissions.challenge_id). \
+        filter(tables.submissions.type == 'correct'). \
+        filter(tables.challenges.name == challenge). \
+        order_by(asc(tables.submissions.date))
+
     if user_type != 'all':
         users_solves.filter(tables.users.type == user_type)
     users_solves = users_solves.all()
 
-    users_solves = [item[0] for item in users_solves]
-    # sort users by their rank in the scoreboard
-    return [user for user in users if user in users_solves]
+    return [{ 'name': u[0], 'date': format_date(u[1]) } for u in users_solves]
 
 
 def get_challenges_solved_during(s: Session, tables: CTFdTables, days: int = 1, user_type: str = 'all') -> List[Dict]:
@@ -131,18 +132,12 @@ def get_challenges_solved_during(s: Session, tables: CTFdTables, days: int = 1, 
         join(tables.challenges, tables.challenges.id == tables.submissions.challenge_id). \
         filter(tables.submissions.type == 'correct'). \
         filter(tables.submissions.date > date_reference)
+
     if user_type != 'all':
         solved_challenges = solved_challenges.filter(tables.users.type == user_type)
-    solved_challenges = solved_challenges. \
-        order_by(desc(tables.submissions.date)).all()
+    solved_challenges = solved_challenges.order_by(desc(tables.submissions.date)).all()
 
-    users = get_users(s, tables, user_type=user_type)
-    result_challenges_solved = []
-    for user in users:
-        solved_during_days = [dict(name=solve.challenges.name, value=solve.challenges.value, date=solve.date)
-                              for solve in solved_challenges if solve.users.name == user]
-        result_challenges_solved.append(dict(username=user, challenges=solved_during_days))
-    return result_challenges_solved
+    return [dict(chall=solve.challenges.name, points=solve.challenges.value, date=format_date(solve.date), user=solve.users.name) for solve in solved_challenges]
 
 
 def challenges_solved_by_user(s: Session, tables: CTFdTables, user: str, user_type: str = 'all') -> List[Dict]:
@@ -209,6 +204,15 @@ def select_challenges_by_tags(challenges: List, tag: str) -> List[Any]:
             return selected_challenges[::-1]  # sort from oldest to newest
     return selected_challenges[::-1]  # sort from oldest to newest
 
+def get_solve_count(s: Session, tables: CTFdTables, chall_name: str, user_type: str = 'all') -> int:
+    solve_count = s.query(tables.submissions). \
+        join(tables.challenges, tables.challenges.id == tables.submissions.challenge_id). \
+        filter(tables.challenges.name == chall_name). \
+        filter(tables.submissions.type == 'correct')
+    if user_type != 'all':
+        solve_count = solve_count.filter(tables.users.type == user_type)
+    return solve_count.count()
+
 
 def get_new_challenges(s: Session, tables: CTFdTables, tag: str, user_type: str = 'all') -> Tuple[str, Dict]:
     new_challenge = dict()
@@ -223,9 +227,9 @@ def get_new_challenges(s: Session, tables: CTFdTables, tag: str, user_type: str 
     selected_challenges = select_challenges_by_tags(challenges, tag)
     if len(selected_challenges) > 0:
         item = selected_challenges[0]
+        first_blood = get_solve_count(s, tables, item.challenges.name, user_type=user_type) == 1
         new_tag = get_tag(item)
-        new_challenge = dict(username=item.users.name, challenge=item.challenges.name, value=item.challenges.value,
-                             date=item.date)
+        new_challenge = dict(username=item.users.name, challenge=item.challenges.name, value=item.challenges.value, date=format_date(item.date), first_blood=first_blood)
         #  log.debug(f'New solve', username=item.users.name, challenge=item.challenges.name, date=item.date)
         return new_tag, new_challenge
     else:
