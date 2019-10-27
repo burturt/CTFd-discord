@@ -90,7 +90,7 @@ class CTFdBot:
         @self.bot.command(description='Displays available bot commands')
         async def help(context: commands.context.Context):
             log.info("Command executed", name=str(context.command), author=str(context.message.author))
-            await display.help(self.bot)
+            await display.help(self.bot, context)
 
     def start(self):
         if TOKEN == 'token':
