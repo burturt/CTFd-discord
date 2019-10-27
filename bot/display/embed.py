@@ -179,7 +179,7 @@ async def cron(bot: commands.bot.Bot) -> None:
     if to_send_cron:
         await interrupt(bot.channel, to_send_cron, embed_color=embed_color, embed_name=name)
 
-async def help(bot: commands.bot.Bot) -> None:
+async def help(bot: commands.bot.Bot, context: commands.context.Context) -> None:
     if bot.channel.id != BOT_CHANNEL and str(bot.channel) not in OTHER_CHANNELS and bot.channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
         log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(bot.channel))
         return

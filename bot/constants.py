@@ -1,7 +1,7 @@
 import os
 
 TIMEZONE = 'Australia/Melbourne'
-BOT_CHANNEL = '<channel id here>'
+BOT_CHANNEL = 0
 OTHER_CHANNELS = ['bot-spam']
 # DB_URI = 'mysql+pymysql://root:ctfd@db/ctfd'
 DB_URI = os.environ['DB_URI'] or 'mysql+pymysql://root:ctfd@0.0.0.0:3306/ctfd'
