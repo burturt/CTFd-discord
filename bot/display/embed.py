@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import bot.display.show as show
 from bot import log
-from bot.constants import DB_URI, BOT_CHANNEL, CTFD_MODE, CATCH_MODE
+from bot.constants import DB_URI, BOT_CHANNEL, OTHER_CHANNELS, CTFD_MODE, CATCH_MODE
 from bot.manage.discord_data import get_command_args, get_channel
 
 
@@ -19,7 +19,7 @@ def display(part: str) -> None:
 
 async def interrupt(channel: discord.channel.TextChannel, message: str, embed_color: Optional[int] = None,
                     embed_name: Optional[str] = None) -> None:
-    if str(channel) != BOT_CHANNEL:  # prevent to respond if message/command is not sent from BOT_CHANNEL
+    if str(channel) != in BOT_CHANNEL and str(channel) not in OTHER_CHANNELS and channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
         log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(channel))
         return
     parts = show.display_parts(message)
@@ -180,7 +180,7 @@ async def cron(bot: commands.bot.Bot) -> None:
         await interrupt(bot.channel, to_send_cron, embed_color=embed_color, embed_name=name)
 
 async def help(bot: commands.bot.Bot) -> None:
-    if str(bot.channel) != BOT_CHANNEL:  # prevent to respond if message/command is not sent from BOT_CHANNEL
+    if str(bot.channel) != BOT_CHANNEL and str(bot.channel) not in OTHER_CHANNELS and bot.channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
         log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(bot.channel))
         return
     cp = bot.command_prefix
