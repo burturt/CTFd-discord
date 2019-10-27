@@ -10,7 +10,7 @@ from bot.constants import BOT_CHANNEL
 def get_channel(bot: commands.bot.Bot) -> Optional[discord.channel.TextChannel]:
     for server in bot.guilds:
         for channel in server.channels:
-            if str(channel) == BOT_CHANNEL:
+            if channel.id == BOT_CHANNEL:
                 return channel
     return None
 
