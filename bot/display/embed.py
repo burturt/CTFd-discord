@@ -19,7 +19,7 @@ def display(part: str) -> None:
 
 async def interrupt(channel: discord.channel.TextChannel, message: str, embed_color: Optional[int] = None,
                     embed_name: Optional[str] = None) -> None:
-    if str(channel) != in BOT_CHANNEL and str(channel) not in OTHER_CHANNELS and channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
+    if str(channel) != BOT_CHANNEL and str(channel) not in OTHER_CHANNELS and channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
         log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(channel))
         return
     parts = show.display_parts(message)
@@ -179,8 +179,8 @@ async def cron(bot: commands.bot.Bot) -> None:
     if to_send_cron:
         await interrupt(bot.channel, to_send_cron, embed_color=embed_color, embed_name=name)
 
-async def help(bot: commands.bot.Bot) -> None:
-    if str(bot.channel) != BOT_CHANNEL and str(bot.channel) not in OTHER_CHANNELS and bot.channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
+async def help(bot: commands.bot.Bot, context: commands.context.Context) -> None:
+    if str(context.channel) != BOT_CHANNEL and str(context.channel) not in OTHER_CHANNELS and context.channel.type != discord.ChannelType.private:  # prevent to respond if message/command is not sent from BOT_CHANNEL
         log.warn(f'Unexpected channel != {BOT_CHANNEL}', channel=str(bot.channel))
         return
     cp = bot.command_prefix
@@ -199,4 +199,4 @@ async def help(bot: commands.bot.Bot) -> None:
 """
     embed = discord.Embed(color=0x90e173)
     embed.add_field(name='About', value=about_msg, inline=False)
-    await bot.channel.send(help_msg, embed=embed)
+    await context.channel.send(help_msg, embed=embed)
