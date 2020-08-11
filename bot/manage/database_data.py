@@ -39,7 +39,7 @@ def get_challenge_info(s: Session, tables: CTFdTables, id: int) -> Optional[Tupl
 
 def get_scoreboard(s: Session, tables: CTFdTables, user_type: str = 'all') -> List[Dict]:
     scoreboard = s.query(tables.teams.name, func.sum(tables.challenges.value).label('score')). \
-        join(tables.solves, tables.teams.id == tables.solves.user_id). \
+        join(tables.solves, tables.teams.id == tables.solves.team_id). \
         join(tables.challenges, tables.challenges.id == tables.solves.challenge_id)
 
     scoreboard = scoreboard.group_by(tables.teams.id).all()
